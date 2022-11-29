@@ -6,6 +6,8 @@ import PIL.Image as Image
 import torch
 
 from model import Net
+from torchvision.models import vit_l_16, ViT_L_16_Weights, vgg16_bn
+import torch.nn as nn
 
 parser = argparse.ArgumentParser(description='RecVis A3 evaluation script')
 parser.add_argument('--data', type=str, default='bird_dataset', metavar='D',
@@ -19,7 +21,18 @@ args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
 
 state_dict = torch.load(args.model)
-model = Net()
+model = vgg16_bn()
+
+def set_parameter_requires_grad(model, feature_extracting):
+    if feature_extracting:
+        for param in model.parameters():
+            param.requires_grad = False
+set_parameter_requires_grad(model, True)
+
+num_ftrs = model.classifier[6].in_features
+num_classes = 20
+model.classifier[6] = nn.Linear(num_ftrs,num_classes)
+
 model.load_state_dict(state_dict)
 model.eval()
 if use_cuda:
@@ -43,7 +56,7 @@ output_file = open(args.outfile, "w")
 output_file.write("Id,Category\n")
 for f in tqdm(os.listdir(test_dir)):
     if 'jpg' in f:
-        data = data_transforms(pil_loader(test_dir + '/' + f))
+        data = data_transforms['val'](pil_loader(test_dir + '/' + f))
         data = data.view(1, data.size(0), data.size(1), data.size(2))
         if use_cuda:
             data = data.cuda()
@@ -54,6 +67,3 @@ for f in tqdm(os.listdir(test_dir)):
 output_file.close()
 
 print("Succesfully wrote " + args.outfile + ', you can upload this file to the kaggle competition website')
-        
-
-
