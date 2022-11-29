@@ -7,6 +7,8 @@ from torchvision import datasets
 from torch.autograd import Variable
 from tqdm import tqdm
 
+from torchvision.models import vit_l_16, ViT_L_16_Weights, vgg16_bn
+
 # Training settings
 parser = argparse.ArgumentParser(description='RecVis A3 training script')
 parser.add_argument('--data', type=str, default='bird_dataset', metavar='D',
@@ -36,26 +38,50 @@ if not os.path.isdir(args.experiment):
 # Data initialization and loading
 from data import data_transforms
 
+#print(data_transforms)
+
+#data_transforms = ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1.transforms
+
 train_loader = torch.utils.data.DataLoader(
     datasets.ImageFolder(args.data + '/train_images',
-                         transform=data_transforms),
+                         transform=data_transforms['train']),
     batch_size=args.batch_size, shuffle=True, num_workers=1)
 val_loader = torch.utils.data.DataLoader(
     datasets.ImageFolder(args.data + '/val_images',
-                         transform=data_transforms),
+                         transform=data_transforms['val']),
     batch_size=args.batch_size, shuffle=False, num_workers=1)
 
 # Neural network and optimizer
 # We define neural net in model.py so that it can be reused by the evaluate.py script
-from model import Net
-model = Net()
+#from model import Net
+#model = Net()
+
+# Load weights for transformers
+#model = vit_l_16(weights=ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1)
+
+model = vgg16_bn(pretrained=True)
+
+def set_parameter_requires_grad(model, feature_extracting):
+    if feature_extracting:
+        for param in model.parameters():
+            param.requires_grad = False
+#set_parameter_requires_grad(model, True)
+
+num_ftrs = model.classifier[6].in_features
+num_classes = 20
+model.classifier[6] = nn.Linear(num_ftrs,num_classes)
+
+
+#print(ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1.transforms)
+
 if use_cuda:
     print('Using GPU')
     model.cuda()
 else:
     print('Using CPU')
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+#optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
 def train(epoch):
     model.train()
